@@ -1,3 +1,23 @@
+# cosmic-launcher (fork)
+
+> **This is a fork of [pop-os/cosmic-launcher](https://github.com/pop-os/cosmic-launcher)**, the launcher and
+> window switcher of the COSMIC desktop by [System76](https://system76.com). All credit for the launcher itself
+> goes to System76 and the upstream contributors. The license is unchanged: **GPL-3.0-only** (see `LICENSE`).
+
+## Changes in this fork
+
+Maintained by [eualexandrerrr](https://github.com/eualexandrerrr) for the
+[dotfiles](https://github.com/eualexandrerrr/dotfiles) setup. Everything below is a modification of the
+original work, as required by section 5 of the GPL.
+
+- **Horizontal, centered window switcher** (`src/app.rs`). In alt-tab mode the layer surface is centered on
+  the screen instead of anchored to the top, and the windows are laid out as a horizontal strip of tiles
+  (icon, app name, window title), like the Windows switcher. The search launcher is unchanged.
+
+---
+
+Original README follows.
+
 # Cosmic Launcher
 
 Layer Shell frontend for https://github.com/pop-os/launcher. Currently the underlying protocol being used in the plugin for managing toplevels in wayland is defined [here](https://github.com/pop-os/cosmic-protocols/blob/main/unstable/cosmic-toplevel-info-unstable-v1.xml) but it will be switched to use [wlr-foreign-toplevel-management](https://wayland.app/protocols/wlr-foreign-toplevel-management-unstable-v1) when it is ready.

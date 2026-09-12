@@ -247,10 +247,14 @@ impl CosmicLauncher {
             move |app: &mut CosmicLauncher| SctkLayerSurfaceSettings {
                 id: app.window_id,
                 keyboard_interactivity: KeyboardInteractivity::Exclusive,
-                anchor: Anchor::TOP,
+                // The window switcher sits in the middle of the screen, laid out sideways.
+                anchor: if app.alt_tab { Anchor::empty() } else { Anchor::TOP },
                 namespace: "launcher".into(),
                 size: None,
-                size_limits: Limits::NONE.min_width(1.0).min_height(1.0).max_width(600.0),
+                size_limits: Limits::NONE
+                    .min_width(1.0)
+                    .min_height(1.0)
+                    .max_width(if app.alt_tab { 2400.0 } else { 600.0 }),
                 exclusive_zone: -1,
                 ..Default::default()
             },
@@ -342,6 +346,9 @@ impl CosmicLauncher {
     }
 
     fn layer_padding(&self) -> IcedMargin {
+        if self.alt_tab {
+            return IcedMargin::default();
+        }
         IcedMargin {
             #[allow(clippy::cast_possible_truncation)]
             top: self.margin as i32 + 16,
@@ -1101,6 +1108,121 @@ impl cosmic::Application for CosmicLauncher {
                     }
                 })
                 .collect();
+
+            if self.alt_tab {
+                const TILE_WIDTH: f32 = 148.0;
+                const TILE_ICON: f32 = 56.0;
+                let tiles: Vec<Element<'_, Message>> = self
+                    .launcher_items
+                    .iter()
+                    .enumerate()
+                    .map(|(i, item)| {
+                        // For a window entry the description carries the app name and the
+                        // name carries the window title.
+                        let (app_name, title) = if item.window.is_some() {
+                            (&item.description, &item.name)
+                        } else {
+                            (&item.name, &item.description)
+                        };
+                        let mut tile = Column::new()
+                            .spacing(6)
+                            .align_x(Alignment::Center)
+                            .width(Length::Fixed(TILE_WIDTH));
+                        if let Some(Some(icon_handle)) = self.launcher_item_icon_handles.get(i) {
+                            tile = tile.push(
+                                icon(icon_handle.clone())
+                                    .width(Length::Fixed(TILE_ICON))
+                                    .height(Length::Fixed(TILE_ICON)),
+                            );
+                        } else {
+                            tile = tile.push(
+                                vertical_space().height(Length::Fixed(TILE_ICON)),
+                            );
+                        }
+                        tile = tile
+                            .push(
+                                text::body(app_name.lines().next().unwrap_or_default().to_string())
+                                    .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
+                                    .width(Length::Fill)
+                                    .align_x(Horizontal::Center),
+                            )
+                            .push(
+                                text::caption(title.lines().next().unwrap_or_default().to_string())
+                                    .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
+                                    .width(Length::Fill)
+                                    .align_x(Horizontal::Center),
+                            );
+                        let is_focused = i == self.focused;
+                        mouse_area(
+                            cosmic::widget::button::custom(tile)
+                                .id(self.result_ids[i].clone())
+                                .on_press(Message::Activate(Some(i)))
+                                .padding([12, 8])
+                                .class(Button::Custom {
+                                    active: Box::new(move |focused, theme| {
+                                        let focused = is_focused || focused;
+                                        let rad_s = theme.cosmic().corner_radii.radius_s;
+                                        let a = if focused {
+                                            button::Catalog::hovered(theme, focused, focused, &Button::Text)
+                                        } else {
+                                            button::Catalog::active(theme, focused, focused, &Button::Text)
+                                        };
+                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                    }),
+                                    hovered: Box::new(move |focused, theme| {
+                                        let focused = is_focused || focused;
+                                        let rad_s = theme.cosmic().corner_radii.radius_s;
+                                        let a = button::Catalog::hovered(theme, focused, focused, &Button::Text);
+                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                    }),
+                                    disabled: Box::new(|theme| {
+                                        let rad_s = theme.cosmic().corner_radii.radius_s;
+                                        let a = button::Catalog::disabled(theme, &Button::Text);
+                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                    }),
+                                    pressed: Box::new(move |focused, theme| {
+                                        let focused = is_focused || focused;
+                                        let rad_s = theme.cosmic().corner_radii.radius_s;
+                                        let a = button::Catalog::pressed(theme, focused, focused, &Button::Text);
+                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                    }),
+                                }),
+                        )
+                        .on_right_release(Message::Context(i))
+                        .into()
+                    })
+                    .collect();
+                let strip = row(tiles).spacing(8).align_y(Alignment::Center);
+                let window = container(id_container(strip, MAIN_ID.clone()))
+                    .width(Length::Shrink)
+                    .height(Length::Shrink)
+                    .class(Container::Custom(Box::new(|theme| {
+                        let t = theme.cosmic();
+                        let radii = t.radius_s().map(|x| if x < 4.0 { x } else { x + 4.0 });
+                        container::Style {
+                            text_color: Some(t.on_bg_color().into()),
+                            icon_color: Some(t.on_bg_color().into()),
+                            background: Some(Color::from(t.background(theme.transparent).base).into()),
+                            border: Border { radius: radii.into(), width: 1.0, color: t.bg_divider().into() },
+                            shadow: Shadow::default(),
+                            snap: true,
+                        }
+                    })))
+                    .padding([16, 16]);
+                let autosize = autosize::autosize(
+                    if self.menu.is_some() {
+                        Element::from(
+                            mouse_area(window)
+                                .on_release(Message::CloseContextMenu)
+                                .on_right_release(Message::CloseContextMenu),
+                        )
+                    } else {
+                        window.into()
+                    },
+                    AUTOSIZE_ID.clone(),
+                );
+                return Element::from(autosize);
+            }
 
             let mut content = if self.alt_tab {
                 Column::new()
