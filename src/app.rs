@@ -162,6 +162,8 @@ pub struct CosmicLauncher {
     overlap: HashMap<String, Rectangle>,
     margin: f32,
     height: f32,
+    /// quanto o painel de baixo cobre, pro lancador nascer logo acima dele
+    margin_bottom: f32,
     needs_clear: bool,
     hand_over: String,
     dummy_id: Option<window::Id>,
@@ -249,7 +251,7 @@ impl CosmicLauncher {
                 id: app.window_id,
                 keyboard_interactivity: KeyboardInteractivity::Exclusive,
                 // The window switcher sits in the middle of the screen, laid out sideways.
-                anchor: if app.alt_tab { Anchor::empty() } else { Anchor::TOP },
+                anchor: if app.alt_tab { Anchor::empty() } else { Anchor::BOTTOM },
                 namespace: "launcher".into(),
                 size: None,
                 size_limits: Limits::NONE
@@ -305,6 +307,14 @@ impl CosmicLauncher {
     fn handle_overlap(&mut self) -> Task<Message> {
         let mid_height = self.height / 2.;
         self.margin = 0.;
+        self.margin_bottom = 0.;
+
+        for o in self.overlap.values() {
+            // Painel encostado embaixo: guarda o quanto ele cobre, que e de onde o menu sobe.
+            if self.height > 0. && o.y + o.height >= self.height - 1. {
+                self.margin_bottom = self.margin_bottom.max(self.height - o.y);
+            }
+        }
 
         for o in self.overlap.values() {
             if self.margin + mid_height < o.y
@@ -350,9 +360,10 @@ impl CosmicLauncher {
         if self.alt_tab {
             return IcedMargin::default();
         }
+        // O menu abre de baixo pra cima, encostado no painel, como o do Windows 11.
         IcedMargin {
             #[allow(clippy::cast_possible_truncation)]
-            top: self.margin as i32 + 16,
+            bottom: self.margin_bottom as i32 + 16,
             ..Default::default()
         }
     }
@@ -438,6 +449,7 @@ impl cosmic::Application for CosmicLauncher {
                 .collect::<Vec<_>>(),
             margin: 0.,
             overlap: HashMap::new(),
+            margin_bottom: 0.,
             height: 800.,
             needs_clear: false,
             hand_over: String::default(),
@@ -1271,7 +1283,7 @@ impl cosmic::Application for CosmicLauncher {
             }
 
             let window = Column::new()
-                .push(vertical_space().height(Length::Fixed(self.margin + 16.)))
+                .push(vertical_space().height(Length::Fixed(0.)))
                 .push(
                     container(id_container(content, MAIN_ID.clone()))
                         .width(Length::Shrink)
