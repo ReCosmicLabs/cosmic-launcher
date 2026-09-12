@@ -14,8 +14,9 @@ original work, as required by section 5 of the GPL.
   the screen instead of anchored to the top, and the windows are laid out as a horizontal strip of tiles
   (icon, app name, window title), like the Windows switcher. The search launcher is unchanged.
 - **Search launcher opens from the bottom** (`src/app.rs`). The layer is anchored to the bottom edge and
-  padded by the height of the bottom panel, so the launcher floats just above the dock and grows upward,
-  like the Windows 11 start menu, instead of dropping from the top of the screen.
+  asks for `exclusive_zone = 0`, so the compositor places it right above the panel's exclusive zone,
+  touching the dock, and it grows upward like the Windows 11 start menu instead of dropping from the
+  top of the screen. The window switcher keeps `-1` and stays centered.
 - **All apps, not recents** (`src/app.rs`). With an empty search box the launcher shows every installed
   application as an alphabetical icon grid, scrollable, instead of the handful of recent entries
   pop-launcher returns. Typing switches back to the usual search results. Clicking a tile launches the

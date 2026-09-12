@@ -164,8 +164,6 @@ pub struct CosmicLauncher {
     overlap: HashMap<String, Rectangle>,
     margin: f32,
     height: f32,
-    /// quanto o painel de baixo cobre, pro lancador nascer logo acima dele
-    margin_bottom: f32,
     needs_clear: bool,
     hand_over: String,
     dummy_id: Option<window::Id>,
@@ -301,7 +299,9 @@ impl CosmicLauncher {
                     .min_width(1.0)
                     .min_height(1.0)
                     .max_width(if app.alt_tab { 2400.0 } else { 600.0 }),
-                exclusive_zone: -1,
+                // Zona exclusiva 0: o compositor poe o menu acima da zona do painel, encostado
+                // nele, em vez de por cima. O alt-tab continua livre, no meio da tela.
+                exclusive_zone: if app.alt_tab { -1 } else { 0 },
                 ..Default::default()
             },
             None,
@@ -350,14 +350,6 @@ impl CosmicLauncher {
     fn handle_overlap(&mut self) -> Task<Message> {
         let mid_height = self.height / 2.;
         self.margin = 0.;
-        self.margin_bottom = 0.;
-
-        for o in self.overlap.values() {
-            // Painel encostado embaixo: guarda o quanto ele cobre, que e de onde o menu sobe.
-            if self.height > 0. && o.y + o.height >= self.height - 1. {
-                self.margin_bottom = self.margin_bottom.max(self.height - o.y);
-            }
-        }
 
         for o in self.overlap.values() {
             if self.margin + mid_height < o.y
@@ -403,12 +395,9 @@ impl CosmicLauncher {
         if self.alt_tab {
             return IcedMargin::default();
         }
-        // O menu abre de baixo pra cima, encostado no painel, como o do Windows 11.
-        IcedMargin {
-            #[allow(clippy::cast_possible_truncation)]
-            bottom: self.margin_bottom as i32 + 16,
-            ..Default::default()
-        }
+        // O menu abre de baixo pra cima, colado no painel, como o do Windows 11; quem afasta
+        // do painel e a zona exclusiva dele (exclusive_zone 0 em show()).
+        IcedMargin::default()
     }
 }
 
@@ -493,7 +482,6 @@ impl cosmic::Application for CosmicLauncher {
                 .collect::<Vec<_>>(),
             margin: 0.,
             overlap: HashMap::new(),
-            margin_bottom: 0.,
             height: 800.,
             needs_clear: false,
             hand_over: String::default(),
