@@ -37,6 +37,7 @@ use cosmic::theme::{self, Button, Container};
 use cosmic::widget::icon::IconFallback;
 use cosmic::widget::space::{horizontal as horizontal_space, vertical as vertical_space};
 use cosmic::widget::text_input::{self, StyleSheet as TextInputStyleSheet};
+use cosmic::desktop::IconSourceExt;
 use cosmic::widget::{autosize, button, divider, icon, id_container, mouse_area, scrollable, text};
 use cosmic::{Element, keyboard_nav};
 use iced::keyboard::{Key, Modifiers};
@@ -149,6 +150,8 @@ pub struct CosmicLauncher {
     launcher_items: Vec<SearchResult>,
     ignored: Vec<String>,
     launcher_item_icon_handles: Vec<Option<cosmic::widget::icon::Handle>>,
+    /// Todos os apps instalados, pra grade do menu iniciar quando nao ha busca.
+    apps: Vec<AppTile>,
     tx: Option<mpsc::Sender<launcher::Request>>,
     menu: Option<(u32, Vec<ContextOption>)>,
     cursor_position: Option<Point<f32>>,
@@ -174,6 +177,7 @@ pub enum Message {
     InputChanged(String),
     Backspace,
     TabPress,
+    LaunchApp(usize),
     CompleteFocusedId(Id),
     Activate(Option<usize>),
     Context(usize),
@@ -191,6 +195,35 @@ pub enum Message {
     Opened(Size, window::Id),
     AltRelease,
     Overlap(OverlapNotifyEvent),
+}
+
+/// Um app instalado, do jeito que a grade do menu precisa.
+#[derive(Clone)]
+pub struct AppTile {
+    name: String,
+    icon: cosmic::widget::icon::Handle,
+    exec: String,
+    app_id: String,
+    terminal: bool,
+}
+
+/// Lista de todos os apps visiveis, em ordem alfabetica -- o menu iniciar mostra tudo, nao so
+/// o que foi usado por ultimo.
+fn carregar_apps() -> Vec<AppTile> {
+    let locales = cosmic::desktop::fde::get_languages_from_env();
+    let mut apps: Vec<AppTile> = cosmic::desktop::load_applications(&locales, false, Some("COSMIC"))
+        .filter_map(|de| {
+            Some(AppTile {
+                name: de.name.clone(),
+                icon: de.icon.as_cosmic_icon(),
+                exec: de.exec.clone()?,
+                app_id: de.id.clone(),
+                terminal: de.terminal,
+            })
+        })
+        .collect();
+    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps
 }
 
 impl CosmicLauncher {
@@ -435,6 +468,7 @@ impl cosmic::Application for CosmicLauncher {
             })
             .unwrap_or_default(),
             launcher_item_icon_handles: Vec::new(),
+            apps: carregar_apps(),
             tx: None,
             menu: None,
             cursor_position: None,
@@ -482,6 +516,23 @@ impl cosmic::Application for CosmicLauncher {
                 self.focused = 0;
                 self.request(launcher::Request::Search(self.input_value.clone()));
                 return operation::snap_to(SCROLLABLE.clone(), RelativeOffset::START);
+            }
+            Message::LaunchApp(i) => {
+                if let Some(app) = self.apps.get(i) {
+                    let exec = app.exec.clone();
+                    let app_id = app.app_id.clone();
+                    let terminal = app.terminal;
+                    tokio::spawn(async move {
+                        cosmic::desktop::spawn_desktop_exec(
+                            exec,
+                            Vec::<(&str, &str)>::new(),
+                            Some(&app_id),
+                            terminal,
+                        )
+                        .await;
+                    });
+                }
+                return self.hide();
             }
             Message::TabPress if !self.alt_tab => {
                 let focused = self.focused;
@@ -1257,6 +1308,87 @@ impl cosmic::Application for CosmicLauncher {
                     AUTOSIZE_ID.clone(),
                 );
                 return Element::from(autosize);
+            }
+
+            // Menu iniciar sem busca: grade com todos os apps, nao a lista de recentes.
+            if !self.alt_tab && self.input_value.is_empty() && !self.apps.is_empty() {
+                const COLUNAS: usize = 6;
+                const TILE: f32 = 104.0;
+                const ICONE: f32 = 48.0;
+                let mut linhas: Vec<Element<'_, Message>> = Vec::new();
+                for (linha, chunk) in self.apps.chunks(COLUNAS).enumerate() {
+                    let mut celulas: Vec<Element<'_, Message>> = Vec::new();
+                    for (coluna, app) in chunk.iter().enumerate() {
+                        let i = linha * COLUNAS + coluna;
+                        let tile = Column::new()
+                            .spacing(6)
+                            .align_x(Alignment::Center)
+                            .width(Length::Fixed(TILE))
+                            .push(icon(app.icon.clone()).width(Length::Fixed(ICONE)).height(Length::Fixed(ICONE)))
+                            .push(
+                                text::body(app.name.clone())
+                                    .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(2)))
+                                    .width(Length::Fill)
+                                    .align_x(Horizontal::Center),
+                            );
+                        celulas.push(
+                            cosmic::widget::button::custom(tile)
+                                .on_press(Message::LaunchApp(i))
+                                .padding([10, 6])
+                                .class(Button::Custom {
+                                    active: Box::new(|focused, theme| {
+                                        let rad_s = theme.cosmic().corner_radii.radius_s;
+                                        let a = button::Catalog::active(theme, focused, focused, &Button::Text);
+                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                    }),
+                                    hovered: Box::new(|focused, theme| {
+                                        let rad_s = theme.cosmic().corner_radii.radius_s;
+                                        let a = button::Catalog::hovered(theme, focused, focused, &Button::Text);
+                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                    }),
+                                    disabled: Box::new(|theme| {
+                                        let rad_s = theme.cosmic().corner_radii.radius_s;
+                                        let a = button::Catalog::disabled(theme, &Button::Text);
+                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                    }),
+                                    pressed: Box::new(|focused, theme| {
+                                        let rad_s = theme.cosmic().corner_radii.radius_s;
+                                        let a = button::Catalog::pressed(theme, focused, focused, &Button::Text);
+                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                    }),
+                                })
+                                .into(),
+                        );
+                    }
+                    linhas.push(row(celulas).spacing(4).into());
+                }
+                let grade = Column::with_children(linhas).spacing(4);
+                let conteudo = column![
+                    launcher_entry,
+                    container(scrollable(grade).id(SCROLLABLE.clone())).max_height(520.)
+                ]
+                .spacing(16)
+                .max_width(700)
+                .width(Length::Fixed(700.));
+                let window = Column::new().push(
+                    container(id_container(conteudo, MAIN_ID.clone()))
+                        .width(Length::Shrink)
+                        .height(Length::Shrink)
+                        .class(Container::Custom(Box::new(|theme| {
+                            let t = theme.cosmic();
+                            let radii = t.radius_s().map(|x| if x < 4.0 { x } else { x + 4.0 });
+                            container::Style {
+                                text_color: Some(t.on_bg_color().into()),
+                                icon_color: Some(t.on_bg_color().into()),
+                                background: Some(Color::from(t.background(theme.transparent).base).into()),
+                                border: Border { radius: radii.into(), width: 1.0, color: t.bg_divider().into() },
+                                shadow: Shadow::default(),
+                                snap: true,
+                            }
+                        })))
+                        .padding([24, 32]),
+                );
+                return Element::from(autosize::autosize(window, AUTOSIZE_ID.clone()));
             }
 
             let mut content = if self.alt_tab {
