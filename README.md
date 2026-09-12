@@ -26,7 +26,8 @@ original work, as required by section 5 of the GPL.
   ones already open.
 - **Plain rows in search results** (`src/app.rs`). The 16 px source icon in front of the app icon and
   the desktop-entry comment ("Local - A terminal emulator") are gone: an app row is icon, name and the
-  `Ctrl + N` hint. A window row still shows its title under the app name.
+  `Ctrl + N` hint, with a 24 px icon and caption-sized text, in both the search results and the
+  all-apps list. A window row still shows its title under the app name.
 - **Windows hidden from the switcher** (`src/app.rs`). Entries whose name or app name is in the
   `ignored` list of `com.system76.CosmicAppList` (the key added by
   [cosmic-applets](https://github.com/ReCosmicLabs/cosmic-applets)) never show up in alt-tab, so a

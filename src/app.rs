@@ -1046,7 +1046,7 @@ impl cosmic::Application for CosmicLauncher {
                     };
 
                     let name = Column::with_children(name.lines().map(|line| {
-                        text::body(line.to_string())
+                        text::caption(line.to_string())
                             .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
                             .align_x(Horizontal::Left)
                             .align_y(Vertical::Center)
@@ -1079,8 +1079,8 @@ impl cosmic::Application for CosmicLauncher {
                     if let Some(Some(icon_handle)) = self.launcher_item_icon_handles.get(i) {
                         button_content.push(
                             icon(icon_handle.clone())
-                                .width(Length::Fixed(32.0))
-                                .height(Length::Fixed(32.0))
+                                .width(Length::Fixed(24.0))
+                                .height(Length::Fixed(24.0))
                                 .into(),
                         );
                     }
@@ -1122,7 +1122,7 @@ impl cosmic::Application for CosmicLauncher {
                         .id(self.result_ids[i].clone())
                         .width(Length::Fill)
                         .on_press(Message::Activate(Some(i)))
-                        .padding([8, 24])
+                        .padding([6, 24])
                         .class(Button::Custom {
                             active: Box::new(move |focused, theme| {
                                 let focused = is_focused || focused;
@@ -1308,12 +1308,12 @@ impl cosmic::Application for CosmicLauncher {
 
             // Menu iniciar sem busca: todos os apps, em lista, no mesmo desenho da busca.
             if !self.alt_tab && self.input_value.is_empty() && !self.apps.is_empty() {
-                const ICONE: f32 = 32.0;
+                const ICONE: f32 = 24.0;
                 let mut linhas: Vec<Element<'_, Message>> = Vec::new();
                 for (i, app) in self.apps.iter().enumerate() {
                     let conteudo = row![
                         icon(app.icon.clone()).width(Length::Fixed(ICONE)).height(Length::Fixed(ICONE)),
-                        text::body(app.name.clone())
+                        text::caption(app.name.clone())
                             .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
                             .width(Length::Fill),
                     ]
@@ -1323,7 +1323,7 @@ impl cosmic::Application for CosmicLauncher {
                         cosmic::widget::button::custom(conteudo)
                             .width(Length::Fill)
                             .on_press(Message::LaunchApp(i))
-                            .padding([8, 24])
+                            .padding([6, 24])
                             .class(Button::Custom {
                                 active: Box::new(|focused, theme| {
                                     let rad_s = theme.cosmic().corner_radii.radius_s;
