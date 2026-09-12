@@ -1123,6 +1123,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmic-app-list-config"
+version = "1.0.15"
+source = "git+https://github.com/ReCosmicLabs/cosmic-applets?branch=recosmic#1707310a5e52cf175d2fd6a38e7ab90c79d9e695"
+dependencies = [
+ "libcosmic",
+ "serde",
+]
+
+[[package]]
 name = "cosmic-client-toolkit"
 version = "0.2.0"
 source = "git+https://github.com/pop-os/cosmic-protocols?rev=32283d7#32283d76a8d0342da74c4cc022a533c52dcf378f"
@@ -1185,6 +1194,7 @@ version = "1.6.0"
 dependencies = [
  "clap",
  "console-subscriber",
+ "cosmic-app-list-config",
  "futures",
  "i18n-embed",
  "i18n-embed-fl",
@@ -1203,6 +1213,20 @@ dependencies = [
  "tracing-subscriber",
  "xdgen",
  "zbus",
+]
+
+[[package]]
+name = "cosmic-panel-config"
+version = "0.1.0"
+source = "git+https://github.com/pop-os/cosmic-panel#e6e6442d762291beeb908bb7dd8a2cefff8eb7d3"
+dependencies = [
+ "anyhow",
+ "cosmic-config",
+ "serde",
+ "smithay-client-toolkit",
+ "tracing",
+ "wayland-protocols-wlr",
+ "xdg-shell-wrapper-config",
 ]
 
 [[package]]
@@ -3348,6 +3372,7 @@ dependencies = [
  "cosmic-client-toolkit",
  "cosmic-config",
  "cosmic-freedesktop-icons",
+ "cosmic-panel-config",
  "cosmic-settings-config",
  "cosmic-settings-daemon",
  "cosmic-theme",
@@ -7302,6 +7327,15 @@ name = "xdg"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2fb433233f2df9344722454bc7e96465c9d03bff9d77c248f9e7523fe79585b5"
+
+[[package]]
+name = "xdg-shell-wrapper-config"
+version = "0.1.0"
+source = "git+https://github.com/pop-os/cosmic-panel#e6e6442d762291beeb908bb7dd8a2cefff8eb7d3"
+dependencies = [
+ "serde",
+ "wayland-protocols-wlr",
+]
 
 [[package]]
 name = "xdgen"

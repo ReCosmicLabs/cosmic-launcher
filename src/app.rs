@@ -147,6 +147,7 @@ pub struct CosmicLauncher {
     input_value: String,
     surface_state: SurfaceState,
     launcher_items: Vec<SearchResult>,
+    ignored: Vec<String>,
     launcher_item_icon_handles: Vec<Option<cosmic::widget::icon::Handle>>,
     tx: Option<mpsc::Sender<launcher::Request>>,
     menu: Option<(u32, Vec<ContextOption>)>,
@@ -411,6 +412,17 @@ impl cosmic::Application for CosmicLauncher {
             input_value: String::new(),
             surface_state: SurfaceState::Hidden,
             launcher_items: Vec::new(),
+            ignored: cosmic::cosmic_config::Config::new(
+                cosmic_app_list_config::APP_ID,
+                <cosmic_app_list_config::AppListConfig as cosmic::cosmic_config::CosmicConfigEntry>::VERSION,
+            )
+            .ok()
+            .map(|h| {
+                <cosmic_app_list_config::AppListConfig as cosmic::cosmic_config::CosmicConfigEntry>::get_entry(&h)
+                    .unwrap_or_else(|(_, c)| c)
+                    .ignored
+            })
+            .unwrap_or_default(),
             launcher_item_icon_handles: Vec::new(),
             tx: None,
             menu: None,
@@ -607,6 +619,17 @@ impl cosmic::Application for CosmicLauncher {
                         }
                     }
                     pop_launcher::Response::Update(mut list) => {
+                        // A janela que a barra de tarefas esconde some do alt-tab junto: e a
+                        // mesma lista `ignored`, do com.system76.CosmicAppList.
+                        if !self.ignored.is_empty() {
+                            list.retain(|item| {
+                                item.window.is_none()
+                                    || !self.ignored.iter().any(|alvo| {
+                                        alvo.eq_ignore_ascii_case(&item.name)
+                                            || alvo.eq_ignore_ascii_case(&item.description)
+                                    })
+                            });
+                        }
                         if self.alt_tab && list.is_empty() {
                             return self.hide();
                         }
