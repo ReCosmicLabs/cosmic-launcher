@@ -178,6 +178,7 @@ pub enum Message {
     Backspace,
     TabPress,
     LaunchApp(usize),
+    Rodape(Rodape),
     CompleteFocusedId(Id),
     Activate(Option<usize>),
     Context(usize),
@@ -195,6 +196,16 @@ pub enum Message {
     Opened(Size, window::Id),
     AltRelease,
     Overlap(OverlapNotifyEvent),
+}
+
+/// Botoes do pe do menu iniciar.
+#[derive(Clone, Copy, Debug)]
+pub enum Rodape {
+    Configuracoes,
+    Bloquear,
+    Sair,
+    Reiniciar,
+    Desligar,
 }
 
 /// Um app instalado, do jeito que a grade do menu precisa.
@@ -516,6 +527,23 @@ impl cosmic::Application for CosmicLauncher {
                 self.focused = 0;
                 self.request(launcher::Request::Search(self.input_value.clone()));
                 return operation::snap_to(SCROLLABLE.clone(), RelativeOffset::START);
+            }
+            Message::Rodape(acao) => {
+                let (prog, args): (&str, &[&str]) = match acao {
+                    Rodape::Configuracoes => ("cosmic-settings", &[]),
+                    Rodape::Bloquear => ("loginctl", &["lock-session"]),
+                    Rodape::Sair => ("loginctl", &["terminate-user", ""]),
+                    Rodape::Reiniciar => ("systemctl", &["reboot"]),
+                    Rodape::Desligar => ("systemctl", &["poweroff"]),
+                };
+                let mut cmd = std::process::Command::new(prog);
+                if matches!(acao, Rodape::Sair) {
+                    cmd.arg("terminate-user").arg(std::env::var("USER").unwrap_or_default());
+                } else {
+                    cmd.args(args);
+                }
+                let _ = cmd.spawn();
+                return self.hide();
             }
             Message::LaunchApp(i) => {
                 if let Some(app) = self.apps.get(i) {
@@ -1310,66 +1338,86 @@ impl cosmic::Application for CosmicLauncher {
                 return Element::from(autosize);
             }
 
-            // Menu iniciar sem busca: grade com todos os apps, nao a lista de recentes.
+            // Menu iniciar sem busca: todos os apps, em lista, no mesmo desenho da busca.
             if !self.alt_tab && self.input_value.is_empty() && !self.apps.is_empty() {
-                const COLUNAS: usize = 6;
-                const TILE: f32 = 104.0;
-                const ICONE: f32 = 48.0;
+                const ICONE: f32 = 32.0;
                 let mut linhas: Vec<Element<'_, Message>> = Vec::new();
-                for (linha, chunk) in self.apps.chunks(COLUNAS).enumerate() {
-                    let mut celulas: Vec<Element<'_, Message>> = Vec::new();
-                    for (coluna, app) in chunk.iter().enumerate() {
-                        let i = linha * COLUNAS + coluna;
-                        let tile = Column::new()
-                            .spacing(6)
-                            .align_x(Alignment::Center)
-                            .width(Length::Fixed(TILE))
-                            .push(icon(app.icon.clone()).width(Length::Fixed(ICONE)).height(Length::Fixed(ICONE)))
-                            .push(
-                                text::body(app.name.clone())
-                                    .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(2)))
-                                    .width(Length::Fill)
-                                    .align_x(Horizontal::Center),
-                            );
-                        celulas.push(
-                            cosmic::widget::button::custom(tile)
-                                .on_press(Message::LaunchApp(i))
-                                .padding([10, 6])
-                                .class(Button::Custom {
-                                    active: Box::new(|focused, theme| {
-                                        let rad_s = theme.cosmic().corner_radii.radius_s;
-                                        let a = button::Catalog::active(theme, focused, focused, &Button::Text);
-                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
-                                    }),
-                                    hovered: Box::new(|focused, theme| {
-                                        let rad_s = theme.cosmic().corner_radii.radius_s;
-                                        let a = button::Catalog::hovered(theme, focused, focused, &Button::Text);
-                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
-                                    }),
-                                    disabled: Box::new(|theme| {
-                                        let rad_s = theme.cosmic().corner_radii.radius_s;
-                                        let a = button::Catalog::disabled(theme, &Button::Text);
-                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
-                                    }),
-                                    pressed: Box::new(|focused, theme| {
-                                        let rad_s = theme.cosmic().corner_radii.radius_s;
-                                        let a = button::Catalog::pressed(theme, focused, focused, &Button::Text);
-                                        button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
-                                    }),
-                                })
-                                .into(),
-                        );
+                for (i, app) in self.apps.iter().enumerate() {
+                    let conteudo = row![
+                        icon(app.icon.clone()).width(Length::Fixed(ICONE)).height(Length::Fixed(ICONE)),
+                        text::body(app.name.clone())
+                            .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(1)))
+                            .width(Length::Fill),
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center);
+                    linhas.push(
+                        cosmic::widget::button::custom(conteudo)
+                            .width(Length::Fill)
+                            .on_press(Message::LaunchApp(i))
+                            .padding([8, 24])
+                            .class(Button::Custom {
+                                active: Box::new(|focused, theme| {
+                                    let rad_s = theme.cosmic().corner_radii.radius_s;
+                                    let a = button::Catalog::active(theme, focused, focused, &Button::Text);
+                                    button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                }),
+                                hovered: Box::new(|focused, theme| {
+                                    let rad_s = theme.cosmic().corner_radii.radius_s;
+                                    let a = button::Catalog::hovered(theme, focused, focused, &Button::Text);
+                                    button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                }),
+                                disabled: Box::new(|theme| {
+                                    let rad_s = theme.cosmic().corner_radii.radius_s;
+                                    let a = button::Catalog::disabled(theme, &Button::Text);
+                                    button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                }),
+                                pressed: Box::new(|focused, theme| {
+                                    let rad_s = theme.cosmic().corner_radii.radius_s;
+                                    let a = button::Catalog::pressed(theme, focused, focused, &Button::Text);
+                                    button::Style { border_radius: rad_s.into(), outline_width: 0.0, ..a }
+                                }),
+                            })
+                            .into(),
+                    );
+                    if i + 1 < self.apps.len() {
+                        linhas.push(divider::horizontal::light().into());
                     }
-                    linhas.push(row(celulas).spacing(4).into());
                 }
-                let grade = Column::with_children(linhas).spacing(4);
+                let lista = components::list::column(linhas);
+                let botao = |nome: &'static str, rotulo: String, acao: Rodape| {
+                    cosmic::widget::button::custom(
+                        row![
+                            icon::from_name(nome).size(16),
+                            text::body(rotulo),
+                        ]
+                        .spacing(6)
+                        .align_y(Alignment::Center),
+                    )
+                    .padding([6, 10])
+                    .class(Button::Text)
+                    .on_press(Message::Rodape(acao))
+                };
+                let rodape = row![
+                    botao("preferences-system-symbolic", fl!("footer-settings"), Rodape::Configuracoes),
+                    horizontal_space().width(Length::Fill),
+                    botao("system-lock-screen-symbolic", fl!("footer-lock"), Rodape::Bloquear),
+                    botao("system-log-out-symbolic", fl!("footer-logout"), Rodape::Sair),
+                    botao("system-reboot-symbolic", fl!("footer-reboot"), Rodape::Reiniciar),
+                    botao("system-shutdown-symbolic", fl!("footer-shutdown"), Rodape::Desligar),
+                ]
+                .spacing(4)
+                .align_y(Alignment::Center)
+                .width(Length::Fill);
                 let conteudo = column![
                     launcher_entry,
-                    container(scrollable(grade).id(SCROLLABLE.clone())).max_height(520.)
+                    container(scrollable(lista).id(SCROLLABLE.clone())).max_height(440.),
+                    divider::horizontal::light(),
+                    rodape,
                 ]
                 .spacing(16)
-                .max_width(700)
-                .width(Length::Fixed(700.));
+                .max_width(600)
+                .width(Length::Fixed(600.));
                 let window = Column::new().push(
                     container(id_container(conteudo, MAIN_ID.clone()))
                         .width(Length::Shrink)
