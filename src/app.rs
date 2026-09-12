@@ -727,9 +727,12 @@ impl cosmic::Application for CosmicLauncher {
                         if self.alt_tab || self.input_value.is_empty() {
                             list.reverse();
                         }
+                        // Na busca, o app vem antes das janelas ja abertas dele: quem digita
+                        // "terminal" quer um terminal novo. No alt-tab so ha janelas mesmo.
+                        let alt_tab = self.alt_tab;
                         list.sort_by(|a, b| {
-                            let a = i32::from(a.window.is_none());
-                            let b = i32::from(b.window.is_none());
+                            let a = i32::from(a.window.is_none() == alt_tab);
+                            let b = i32::from(b.window.is_none() == alt_tab);
                             a.cmp(&b)
                         });
                         self.launcher_items.splice(.., list);

@@ -20,6 +20,9 @@ original work, as required by section 5 of the GPL.
   application as an alphabetical icon grid, scrollable, instead of the handful of recent entries
   pop-launcher returns. Typing switches back to the usual search results. Clicking a tile launches the
   app through its desktop entry.
+- **Apps before open windows in search results** (`src/app.rs`). Upstream sorts the matching open windows
+  first; here the application entry comes first, so typing "terminal" offers a new terminal before the
+  ones already open.
 - **Windows hidden from the switcher** (`src/app.rs`). Entries whose name or app name is in the
   `ignored` list of `com.system76.CosmicAppList` (the key added by
   [cosmic-applets](https://github.com/ReCosmicLabs/cosmic-applets)) never show up in alt-tab, so a
