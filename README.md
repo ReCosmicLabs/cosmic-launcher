@@ -2,7 +2,7 @@
 
 > **This is a fork of [pop-os/cosmic-launcher](https://github.com/pop-os/cosmic-launcher)**, the launcher and
 > window switcher of the COSMIC desktop by [System76](https://system76.com). All credit for the launcher itself
-> goes to System76 and the upstream contributors. The license is unchanged: **GPL-3.0-only** (see `LICENSE`).
+> goes to System76 and the upstream contributors. The license is unchanged: **GPL-3.0-only** (see `LICENSE.md`).
 
 ## Changes in this fork
 
