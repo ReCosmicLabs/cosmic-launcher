@@ -47,7 +47,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
 use std::path::Path;
-use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::LazyLock;
 use std::time::Instant;
@@ -1089,35 +1088,6 @@ impl cosmic::Application for CosmicLauncher {
                     }));
 
                     let mut button_content = Vec::new();
-                    if !self.alt_tab
-                        && let Some(source) = item.category_icon.as_ref()
-                    {
-                        let icon_handle = match source {
-                            IconSource::Name(name) => {
-                                if Path::new(name.as_ref()).exists() {
-                                    icon::from_path(Path::new(name.as_ref()).into())
-                                } else {
-                                    icon::from_name(name.as_ref()).handle()
-                                }
-                            }
-
-                            IconSource::Mime(mime) => {
-                                icon::from_name(mime.as_ref().replace('/', "-")).handle()
-                            }
-                        };
-
-                        button_content.push(
-                            icon(icon_handle)
-                                .width(Length::Fixed(16.0))
-                                .height(Length::Fixed(16.0))
-                                .class(cosmic::theme::Svg::Custom(Rc::new(|theme| {
-                                    cosmic::iced::widget::svg::Style {
-                                        color: Some(theme.cosmic().on_bg_color().into()),
-                                    }
-                                })))
-                                .into(),
-                        );
-                    }
                     if let Some(Some(icon_handle)) = self.launcher_item_icon_handles.get(i) {
                         button_content.push(
                             icon(icon_handle.clone())
@@ -1127,7 +1097,14 @@ impl cosmic::Application for CosmicLauncher {
                         );
                     }
 
-                    button_content.push(column![name, desc].width(Length::FillPortion(5)).into());
+                    // App entry: only the name. The desktop-entry comment ("Local - ...") is
+                    // noise; a window entry keeps its title, which tells the windows apart.
+                    let label = if item.window.is_some() {
+                        column![name, desc]
+                    } else {
+                        column![name]
+                    };
+                    button_content.push(label.width(Length::FillPortion(5)).into());
                     if i < 10 {
                         button_content.push(
                             container(
